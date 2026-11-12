@@ -1,5 +1,5 @@
 # Exercice 4 — Le Deployment de votre site.
-# Remplacez chaque TODO, puis : kubectl apply -f k8s/site/
+# Manifeste complété. Appliquer avec : kubectl apply -f k8s/site/
 # Aide : kubectl explain deployment.spec.template.spec.containers
 apiVersion: apps/v1
 kind: Deployment
@@ -8,10 +8,10 @@ metadata:
   labels:
     app: site
 spec:
-  replicas: 1                      # Exercice 5 : vous changerez cette valeur
+  replicas: 3                      # Exercice 5 : passé de 1 à 3
   selector:
     matchLabels:
-      app: TODO                    # doit correspondre aux labels du template ci-dessous
+      app: site                    # doit correspondre aux labels du template ci-dessous
   template:
     metadata:
       labels:
@@ -19,13 +19,28 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: TODO              # utilisez nginx:1.27 (version précise, pas "latest")
+          image: nginx:1.28         # ex. 4 : nginx:1.27 · ex. 5.2 : mise à jour en 1.28
           ports:
-            - containerPort: TODO  # le port sur lequel nginx écoute
+            - containerPort: 80    # le port sur lequel nginx écoute
+          # Bonus B : trafic envoyé uniquement aux pods prêts
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          # Bonus B : ressources réservées et plafonnées
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
           volumeMounts:
             - name: html
-              mountPath: TODO      # le dossier servi par nginx (cf. exercice 3)
+              mountPath: /usr/share/nginx/html   # le dossier servi par nginx (cf. exercice 3)
       volumes:
         - name: html
           configMap:
-            name: TODO             # le nom de la ConfigMap de configmap.yaml
+            name: site-html        # le nom de la ConfigMap de configmap.yaml
