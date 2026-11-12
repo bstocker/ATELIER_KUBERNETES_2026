@@ -11,8 +11,8 @@ data:
     <html lang="fr">
       <head><meta charset="utf-8"><title>Mon site sur Kubernetes</title></head>
       <body>
-        <h1>Bienvenue sur mon site</h1>
-        <!-- TODO : personnalisez la page (votre nom, votre groupe...) -->
-        <p>Servi par Kubernetes.</p>
+        <h1>Bienvenue sur le site de Maxime Kobrin</h1>
+        <p>Atelier Kubernetes 2026 · ING2 Réseau &amp; Sécurité</p>
+        <p>Servi par Kubernetes (Deployment <code>site</code> + ConfigMap <code>site-html</code>).</p>
       </body>
     </html>
