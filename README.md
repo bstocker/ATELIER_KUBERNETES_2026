@@ -542,5 +542,5 @@ git push
 | `CrashLoopBackOff` | L'application plante au démarrage : `kubectl logs <pod> --previous` |
 | Pod `Pending` | Pas assez de ressources ou contrainte impossible : `kubectl describe pod ...` |
 | Portainer affiche un *timeout* | `kubectl rollout restart deploy/portainer -n portainer` |
-| Retrouver le token de Portainer | `kubectl rollout restart deploy/portainer -n portainer` |
+| Retrouver le token de Portainer | `kubectl logs -n portainer deploy/portainer | grep -i token` |
 | Tout recommencer | `k3d cluster delete lab`, puis reprendre l'exercice 1 |
