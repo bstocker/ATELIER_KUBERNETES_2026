@@ -1,0 +1,203 @@
+
+===== Exercice 1 =====
+$ kubectl get nodes -o wide
+NAME               STATUS   ROLES           AGE   VERSION        INTERNAL-IP   EXTERNAL-IP   OS-IMAGE           KERNEL-VERSION     CONTAINER-RUNTIME
+k3d-lab-agent-0    Ready    <none>          12s   v1.35.5+k3s1   172.18.0.3    <none>        K3s v1.35.5+k3s1   6.8.0-1070-azure   containerd://2.2.3-k3s1
+k3d-lab-agent-1    Ready    <none>          12s   v1.35.5+k3s1   172.18.0.4    <none>        K3s v1.35.5+k3s1   6.8.0-1070-azure   containerd://2.2.3-k3s1
+k3d-lab-server-0   Ready    control-plane   16s   v1.35.5+k3s1   172.18.0.2    <none>        K3s v1.35.5+k3s1   6.8.0-1070-azure   containerd://2.2.3-k3s1
+$ docker ps --format table {{.Names}}\t{{.Image}}\t{{.Ports}}
+NAMES              IMAGE                            PORTS
+k3d-lab-serverlb   ghcr.io/k3d-io/k3d-proxy:5.9.0   0.0.0.0:8081->80/tcp, [::]:8081->80/tcp, 0.0.0.0:44447->6443/tcp
+k3d-lab-agent-1    rancher/k3s:v1.35.5-k3s1         
+k3d-lab-agent-0    rancher/k3s:v1.35.5-k3s1         
+k3d-lab-server-0   rancher/k3s:v1.35.5-k3s1         
+$ kubectl get pods -A
+NAMESPACE     NAME                                      READY   STATUS              RESTARTS   AGE
+kube-system   coredns-8db54c48d-7b7f6                   0/1     ContainerCreating   0          10s
+kube-system   helm-install-traefik-crd-pj2tb            0/1     ContainerCreating   0          2s
+kube-system   helm-install-traefik-hlb2w                0/1     ContainerCreating   0          2s
+kube-system   local-path-provisioner-5d9d9885bc-nq752   0/1     ContainerCreating   0          9s
+kube-system   metrics-server-786d997795-6fq94           0/1     ContainerCreating   0          6s
+
+===== Exercice 2 =====
+$ kubectl get all
+NAME                       READY   STATUS    RESTARTS   AGE
+pod/web-68d995574f-vc6nm   1/1     Running   0          28s
+
+NAME                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.43.0.1       <none>        443/TCP   48s
+service/web          ClusterIP   10.43.133.239   <none>        80/TCP    29s
+
+NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/web   1/1     1            1           30s
+
+NAME                             DESIRED   CURRENT   READY   AGE
+replicaset.apps/web-68d995574f   1         1         1       30s
+$ kubectl delete pod -l app=web
+pod "web-68d995574f-vc6nm" deleted from default namespace
+Ancien pod : pod/web-68d995574f-vc6nm / Nouveau pod : pod/web-68d995574f-r945x
+
+===== Exercice 3 =====
+$ kubectl exec deploy/web -- cat /usr/share/nginx/html/index.html
+<h1>Bienvenue sur mon site Web</h1>
+$ kubectl delete pod -l app=web
+pod "web-68d995574f-r945x" deleted from default namespace
+Après suppression du pod :
+$ kubectl exec deploy/web -- grep -o <title>.*</title> /usr/share/nginx/html/index.html
+<title>Welcome to nginx!</title>
+
+===== Exercice 4 =====
+$ kubectl apply -f /tmp/tmp.eedWprqSZO/
+configmap/site-html created
+deployment.apps/site created
+service/site created
+$ kubectl get deploy,pods,svc,configmap
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/site   1/1     1            1           7s
+deployment.apps/web    1/1     1            1           55s
+
+NAME                        READY   STATUS    RESTARTS   AGE
+pod/site-64cd9bb78f-jcbzh   1/1     Running   0          8s
+pod/web-68d995574f-6qcsf    1/1     Running   0          12s
+
+NAME                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.43.0.1       <none>        443/TCP   75s
+service/site         ClusterIP   10.43.144.158   <none>        80/TCP    8s
+service/web          ClusterIP   10.43.133.239   <none>        80/TCP    56s
+
+NAME                         DATA   AGE
+configmap/kube-root-ca.crt   1      68s
+configmap/site-html          1      8s
+$ kubectl get endpoints site
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME   ENDPOINTS      AGE
+site   10.42.2.6:80   8s
+$ kubectl create deployment web --image=nginx --dry-run=server
+error: failed to create deployment: deployments.apps "web" already exists
+
+===== Exercice 5.1 (3 réplicas) =====
+$ kubectl get pods -l app=site -o wide
+NAME                    READY   STATUS    RESTARTS   AGE   IP          NODE               NOMINATED NODE   READINESS GATES
+site-64cd9bb78f-b5g5b   1/1     Running   0          21s   10.42.0.6   k3d-lab-agent-1    <none>           <none>
+site-64cd9bb78f-brq7k   1/1     Running   0          20s   10.42.1.6   k3d-lab-server-0   <none>           <none>
+site-64cd9bb78f-jcbzh   1/1     Running   0          29s   10.42.2.6   k3d-lab-agent-0    <none>           <none>
+
+===== Exercice 5.2 (rolling update vers nginx:1.28, fichiers du dépôt) =====
+$ kubectl apply -f k8s/site/
+configmap/site-html unchanged
+deployment.apps/site configured
+service/site unchanged
+$ kubectl rollout history deploy/site
+deployment.apps/site 
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+
+
+===== Exercice 5.3 (version cassée nginx:9.99) =====
+$ kubectl set image deploy/site nginx=nginx:9.99
+deployment.apps/site image updated
+$ kubectl get pods -l app=site
+NAME                    READY   STATUS             RESTARTS   AGE
+site-54dbc4f754-6fck6   1/1     Running            0          39s
+site-54dbc4f754-pm9zt   1/1     Running            0          47s
+site-54dbc4f754-zrmzc   1/1     Running            0          59s
+site-7886fd9f54-sh4tn   0/1     ImagePullBackOff   0          25s
+Events:
+  Type     Reason     Age               From               Message
+  ----     ------     ----              ----               -------
+  Normal   Scheduled  24s               default-scheduler  Successfully assigned default/site-7886fd9f54-sh4tn to k3d-lab-agent-0
+  Normal   BackOff    23s               kubelet            spec.containers{nginx}: Back-off pulling image "nginx:9.99"
+  Warning  Failed     23s               kubelet            spec.containers{nginx}: Error: ImagePullBackOff
+  Normal   Pulling    8s (x2 over 24s)  kubelet            spec.containers{nginx}: Pulling image "nginx:9.99"
+  Warning  Failed     7s (x2 over 23s)  kubelet            spec.containers{nginx}: Failed to pull image "nginx:9.99": rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:9.99": failed to resolve reference "docker.io/library/nginx:9.99": docker.io/library/nginx:9.99: not found
+  Warning  Failed     7s (x2 over 23s)  kubelet            spec.containers{nginx}: Error: ErrImagePull
+$ kubectl get endpoints site
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME   ENDPOINTS                                AGE
+site   10.42.0.7:80,10.42.1.7:80,10.42.2.7:80   89s
+$ kubectl rollout undo deploy/site
+Warning: resource deployments/site was previously managed with 'kubectl apply'. Rolling back will not update the kubectl.kubernetes.io/last-applied-configuration annotation, which may cause unexpected behavior on future 'kubectl apply' operations. Consider using 'kubectl apply' with your previous configuration file instead.
+deployment.apps/site rolled back
+$ kubectl diff -f k8s/site/
+(kubectl diff sans sortie = cluster et fichiers alignés)
+
+===== Bonus A (Ingress) =====
+$ kubectl apply -f k8s/bonus/ingress.yaml
+ingress.networking.k8s.io/site created
+$ curl -s http://localhost:8081
+<!doctype html>
+<html lang="fr">
+  <head><meta charset="utf-8"><title>Mon site sur Kubernetes</title></head>
+  <body>
+    <h1>Bienvenue sur le site de Maxime Kobrin</h1>
+    <p>Atelier Kubernetes 2026 · ING2 Réseau &amp; Sécurité</p>
+    <p>Servi par Kubernetes (Deployment <code>site</code> + ConfigMap <code>site-html</code>).</p>
+  </body>
+</html>
+$ kubectl delete pod -l app=site --wait=false
+pod "site-54dbc4f754-6fck6" deleted from default namespace
+pod "site-54dbc4f754-pm9zt" deleted from default namespace
+pod "site-54dbc4f754-zrmzc" deleted from default namespace
+$ curl -s -o /dev/null -w HTTP %{http_code} pendant le remplacement des pods\n http://localhost:8081
+HTTP 503 pendant le remplacement des pods
+
+===== Bonus B (probe vers /nope) =====
+$ kubectl get pods -l app=site
+NAME                    READY   STATUS    RESTARTS   AGE
+site-54dbc4f754-6gzrn   1/1     Running   0          37s
+site-54dbc4f754-dlvmr   1/1     Running   0          38s
+site-54dbc4f754-hksj5   1/1     Running   0          37s
+site-f58cfdbb6-9pz7x    0/1     Running   0          30s
+$ kubectl rollout undo deploy/site
+Warning: resource deployments/site was previously managed with 'kubectl apply'. Rolling back will not update the kubectl.kubernetes.io/last-applied-configuration annotation, which may cause unexpected behavior on future 'kubectl apply' operations. Consider using 'kubectl apply' with your previous configuration file instead.
+deployment.apps/site rolled back
+
+===== Bonus C (drain de k3d-lab-agent-0) =====
+$ kubectl get pods -A -o wide --field-selector spec.nodeName=k3d-lab-agent-0
+NAMESPACE     NAME                                      READY   STATUS      RESTARTS   AGE     IP           NODE              NOMINATED NODE   READINESS GATES
+default       site-54dbc4f754-dlvmr                     1/1     Running     0          39s     10.42.2.9    k3d-lab-agent-0   <none>           <none>
+default       site-f58cfdbb6-9pz7x                      0/1     Completed   0          31s     10.42.2.10   k3d-lab-agent-0   <none>           <none>
+kube-system   helm-install-traefik-crd-pj2tb            0/1     Completed   0          3m5s    10.42.2.2    k3d-lab-agent-0   <none>           <none>
+kube-system   local-path-provisioner-5d9d9885bc-nq752   1/1     Running     0          3m12s   10.42.2.3    k3d-lab-agent-0   <none>           <none>
+kube-system   svclb-traefik-e2e8eae3-kks9p              2/2     Running     0          2m46s   10.42.2.4    k3d-lab-agent-0   <none>           <none>
+$ kubectl drain k3d-lab-agent-0 --ignore-daemonsets --delete-emptydir-data --timeout=120s
+node/k3d-lab-agent-0 cordoned
+Warning: ignoring DaemonSet-managed Pods: kube-system/svclb-traefik-e2e8eae3-kks9p
+evicting pod kube-system/local-path-provisioner-5d9d9885bc-nq752
+evicting pod default/site-f58cfdbb6-9pz7x
+evicting pod default/site-54dbc4f754-dlvmr
+evicting pod kube-system/helm-install-traefik-crd-pj2tb
+pod/helm-install-traefik-crd-pj2tb evicted
+pod/site-f58cfdbb6-9pz7x evicted
+pod/site-54dbc4f754-dlvmr evicted
+pod/local-path-provisioner-5d9d9885bc-nq752 evicted
+node/k3d-lab-agent-0 drained
+$ kubectl get pods -o wide
+NAME                    READY   STATUS              RESTARTS   AGE     IP          NODE               NOMINATED NODE   READINESS GATES
+site-54dbc4f754-6gzrn   1/1     Running             0          41s     10.42.1.8   k3d-lab-server-0   <none>           <none>
+site-54dbc4f754-7bln4   0/1     ContainerCreating   0          2s      <none>      k3d-lab-server-0   <none>           <none>
+site-54dbc4f754-hksj5   1/1     Running             0          41s     10.42.0.8   k3d-lab-agent-1    <none>           <none>
+web-68d995574f-6qcsf    1/1     Running             0          2m21s   10.42.1.5   k3d-lab-server-0   <none>           <none>
+$ kubectl uncordon k3d-lab-agent-0
+node/k3d-lab-agent-0 uncordoned
+$ kubectl get pods -o wide
+NAME                    READY   STATUS    RESTARTS   AGE     IP          NODE               NOMINATED NODE   READINESS GATES
+site-54dbc4f754-6gzrn   1/1     Running   0          51s     10.42.1.8   k3d-lab-server-0   <none>           <none>
+site-54dbc4f754-7bln4   1/1     Running   0          12s     10.42.1.9   k3d-lab-server-0   <none>           <none>
+site-54dbc4f754-hksj5   1/1     Running   0          51s     10.42.0.8   k3d-lab-agent-1    <none>           <none>
+web-68d995574f-6qcsf    1/1     Running   0          2m31s   10.42.1.5   k3d-lab-server-0   <none>           <none>
+
+===== Bonus D (namespace prod) =====
+$ kubectl apply -n prod -f k8s/site/
+configmap/site-html created
+deployment.apps/site created
+service/site created
+$ kubectl get deploy,svc -n prod
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/site   0/3     3            0           0s
+
+NAME           TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+service/site   ClusterIP   10.43.172.253   <none>        80/TCP    1s
+
+===== Exercice 6 (Portainer) =====

@@ -12,6 +12,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: TODO     # quel Service ?
+                name: site     # quel Service ?
                 port:
-                  number: TODO # quel port du Service ?
+                  number: 80   # quel port du Service ?
